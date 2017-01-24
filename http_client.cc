@@ -1,8 +1,12 @@
 #include "minet_socket.h"
 #include <stdlib.h>
 #include <ctype.h>
+#include <string>
+#include <iostream>
 
 #define BUFSIZE 1024
+
+using namespace std;
 
 int write_n_bytes(int fd, char * buf, int count);
 
@@ -12,6 +16,7 @@ void error(char *msg) {
 }
 
 int main(int argc, char * argv[]) {
+    cout << "1";
     char * server_name = NULL;
     int server_port = 0;
     char * server_path = NULL;
@@ -25,6 +30,8 @@ int main(int argc, char * argv[]) {
     struct hostent * site = NULL;
     char * req = NULL;
 
+    cout << "2";
+
     char buf[BUFSIZE + 1];
     char * bptr = NULL;
     char * bptr2 = NULL;
@@ -33,7 +40,7 @@ int main(int argc, char * argv[]) {
     struct timeval timeout;
     fd_set set;
 	
-	fprintf(stdout, "123\n");
+	cout << "3";
 
     /*parse args */
     if (argc != 5) {
@@ -45,7 +52,7 @@ int main(int argc, char * argv[]) {
     server_port = atoi(argv[3]);
     server_path = argv[4];
 
-	
+	cout << "4";
 
     /* initialize minet */
     if (toupper(*(argv[1])) == 'K') { 
@@ -56,6 +63,8 @@ int main(int argc, char * argv[]) {
 	fprintf(stderr, "First argument must be k or u\n");
 	exit(-1);
     }
+
+    cout << "5";
 
     /* create socket */
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -71,21 +80,31 @@ int main(int argc, char * argv[]) {
 	}
 		
     /* set address */
-	memset(&sa,0,sizeof sa);
+	memset(&sa,0,sizeof(sa));
 	sa.sin_port = htons(server_port);
-	sa.sin_addr.s_addr = htonl(*(unsigned long *)site->h_addr_list[0]);
+	sa.sin_addr.s_addr = *(unsigned long *)site->h_addr_list[0];
 	sa.sin_family = AF_INET;
 	
+
+	cout << "6";
     /* connect socket */
     if(connect(sock, (struct sockaddr*)&sa, sizeof(sa)) < 0){
 		error("ERROR connecting");
 	}	
 	
-    /* send request */	
-	char * getRequest = strcat("GET ", server_path, " HTTP/1.0\r\n\r\n");
+    /* send request */
+    int length = strlen(server_path) +17;	
+	char getRequest[length];
+	strcpy(getRequest, "GET /");
+	strcat(getRequest, server_path);
+	strcat(getRequest, " HTTP/1.0\r\n\r\n");
+	//strcat("GET " + server_path + " HTTP/1.0\r\n\r\n";
 	
-	if( write(sock, getRequest, strlen(getRequest)) < strlen(getRequest))
-		error("ERROR did nor send all bytes");
+	cout << "\n" << getRequest << "\n";
+	write_n_bytes(sock, getRequest, strlen(getRequest));
+
+	//if( write(sock, getRequest, strlen(getRequest)) < strlen(getRequest))
+	//	error("ERROR did nor send all bytes");
 								
     /* wait till socket can be read */
     /* Hint: use select(), and ignore timeout for now. */
@@ -96,11 +115,15 @@ int main(int argc, char * argv[]) {
 	FD_ZERO(&set);		//zero out set
 	FD_SET(sock,&set);	//add sockfd to set
 
+	cout << "7";
+
 	if(select(sock+1, &set, NULL, NULL, NULL) == -1)
 	{
 		perror("select");
 		exit(1);
 	}
+
+	cout << "8\n";
 	
 	if(FD_ISSET(sock, &set))
 	{
@@ -110,15 +133,38 @@ int main(int argc, char * argv[]) {
 			error("ERROR writing to socket");
 			
 		}
+		if(n==0)
+		{
+			error("server connection closed.");
+		}
 		//fprintf(stdout, "# of bytes read = %d\n", n);			
 	}
 	
-	fprintf(wheretoprint, "%s\n",buf);
+	cout << buf << "\n";
+	//fprintf(wheretoprint, "%s\n",buf);
 	
 	
 	
     /* first read loop -- read headers */
-    
+    /*stringstream stream(buf);
+    string statusLine;
+    cout << getline(&buf, &statusLine);
+*/
+	string buf2(buf);
+	string statusLine = buf2.substr(buf2.find(' ')+1, buf2.find('\r'));
+	if(statusLine != "200 OK")
+	{
+		ok =false;
+		fprintf(stderr,"%s", statusLine);
+		cout << "ERROR FOUND" << endl;
+	}
+	else
+	{
+		cout << buf << endl;
+	}
+
+	cout << statusLine << endl;
+
 	
     /* examine return code */   
     //Skip "HTTP/1.0"
