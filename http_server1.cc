@@ -24,7 +24,7 @@ int main(int argc,char *argv[])
   int addrlen;
   fd_set read_fds;
 
-  FD_ZERO(&read_fds);	//clear set
+  FD_ZERO(&read_fds); //clear set
   
   /* parse command line args */
   if (argc != 3)
@@ -41,8 +41,8 @@ int main(int argc,char *argv[])
 
   /* initialize and make socket */
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-	  perror("socket");
-	  exit(1);
+    perror("socket");
+    exit(1);
   }
   
 
@@ -53,7 +53,7 @@ int main(int argc,char *argv[])
   memset(&(sa.sin_zero), '\0', 8);
 
   /* bind listening socket */
-  if (bind(socket, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
+  if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
         perror("bind");
         exit(1);
     }
@@ -63,26 +63,27 @@ int main(int argc,char *argv[])
         perror("listen");
         exit(1);
     }
-	
-	FD_SET(sock, &read_fds);	//add listening socket to set
-	
+  
+  FD_SET(sock, &read_fds);  //add listening socket to set
+  
   /* connection handling loop */
   while(1)
   {
-	  //wait until connection request has arrived
-	if(select(sock+1, &read_fds, NULL, NULL, NULL) == -1) {
-		perror("select");
-		exit(1);
-	}
-	
-	// connection request arrived
-	if(FD_ISSET(sock, &read_fds))
-	{
-		if((sock2 = accept(sock, (struct sockaddr *) sa2, &addrlen)) == -1)
-			perror("accept");
-		else
-			cout << "connection made" << endl;
-	}
+    //wait until connection request has arrived
+  if(select(sock+1, &read_fds, NULL, NULL, NULL) == -1) {
+    perror("select");
+    exit(1);
+  }
+  
+  // connection request arrived
+  if(FD_ISSET(sock, &read_fds))
+  {
+    addrlen = sizeof(sa2);
+    if((sock2 = accept(sock, (struct sockaddr *)&sa2, (socklen_t*)&addrlen)) == -1)
+      perror("accept");
+    else
+      cout << "connection made" << endl;
+  }
     /* handle connections */
     rc = handle_connection(sock2);
   }
@@ -109,44 +110,44 @@ int handle_connection(int sock2)
                          "<h2>404 FILE NOT FOUND</h2>\n"
                          "</body></html>\n";
   bool ok=true;
-	FILE * file;
+  FILE * file;
   /* first read loop -- get request and headers*/
-	if(readnbytes(sock2, buf, BUFSIZE) < 0){
-		perror("read");
-		ok = false;
-	}
-	else{
-	
+  if(readnbytes(sock2, buf, BUFSIZE) < 0){
+    perror("read");
+    ok = false;
+  }
+  else{
+  
   /* parse request to get file name */
   /* Assumption: this is a GET request and filename contains no spaces*/
-	for(int i =4; buf[i] != ' '; i++)
-		filename[i-4] = buf[i];	
-	
-	
+  for(int i =4; buf[i] != ' '; i++)
+    filename[i-4] = buf[i]; 
+  
+  
     /* try opening the file */
-	if((file = fopen(filename, 'r')) == NULL){
-		perror("opening file");
-		ok = false;
-	}	
-	
-	}
+  if((file = fopen(filename, 'r')) == NULL){
+    perror("opening file");
+    ok = false;
+  } 
+  
+  }
   /* send response */
   if (ok)
   {
     /* send headers */
-	writenbytes(sock2, ok_reponse_f, strlen(ok_reponse_f));
-	
-    /* send file */	
-	fread(ok_response, sizeof(char), 100, file);
-	writenbytes(sock2, ok_response, 100); 
+  writenbytes(sock2, ok_reponse_f, strlen(ok_reponse_f));
+  
+    /* send file */ 
+  fread(ok_response, sizeof(char), 100, file);
+  writenbytes(sock2, ok_response, 100); 
   }
   else // send error response
   {
-	  writenbytes(sock2,notok_response,strlen(notok_response));
+    writenbytes(sock2,notok_response,strlen(notok_response));
   }
 
   /* close socket and free space */
-	close(sock2);
+  close(sock2);
   
   if (ok)
     return 0;
@@ -181,4 +182,3 @@ int writenbytes(int fd,char *str,int size)
   else
     return totalwritten;
 }
-
