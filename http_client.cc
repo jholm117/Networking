@@ -16,7 +16,6 @@ void error(char *msg) {
 }
 
 int main(int argc, char * argv[]) {
-    cout << "1";
     char * server_name = NULL;
     int server_port = 0;
     char * server_path = NULL;
@@ -30,8 +29,6 @@ int main(int argc, char * argv[]) {
     struct hostent * site = NULL;
     char * req = NULL;
 
-    cout << "2";
-
     char buf[BUFSIZE + 1];
     char * bptr = NULL;
     char * bptr2 = NULL;
@@ -40,9 +37,7 @@ int main(int argc, char * argv[]) {
     struct timeval timeout;
     fd_set set;
 	
-	cout << "3";
-
-    /*parse args */
+	/*parse args */
     if (argc != 5) {
 	fprintf(stderr, "usage: http_client k|u server port path\n");
 	exit(-1);
@@ -52,9 +47,7 @@ int main(int argc, char * argv[]) {
     server_port = atoi(argv[3]);
     server_path = argv[4];
 
-	cout << "4";
-
-    /* initialize minet */
+	/* initialize minet */
     if (toupper(*(argv[1])) == 'K') { 
 	minet_init(MINET_KERNEL);
     } else if (toupper(*(argv[1])) == 'U') { 
@@ -63,8 +56,6 @@ int main(int argc, char * argv[]) {
 	fprintf(stderr, "First argument must be k or u\n");
 	exit(-1);
     }
-
-    cout << "5";
 
     /* create socket */
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -85,9 +76,7 @@ int main(int argc, char * argv[]) {
 	sa.sin_addr.s_addr = *(unsigned long *)site->h_addr_list[0];
 	sa.sin_family = AF_INET;
 	
-
-	cout << "6";
-    /* connect socket */
+	/* connect socket */
     if(connect(sock, (struct sockaddr*)&sa, sizeof(sa)) < 0){
 		error("ERROR connecting");
 	}	
@@ -100,7 +89,8 @@ int main(int argc, char * argv[]) {
 	strcat(getRequest, " HTTP/1.0\r\n\r\n");
 	//strcat("GET " + server_path + " HTTP/1.0\r\n\r\n";
 	
-	cout << "\n" << getRequest << "\n";
+	//cout << getRequest << endl;
+	cout << endl;
 	write_n_bytes(sock, getRequest, strlen(getRequest));
 
 	//if( write(sock, getRequest, strlen(getRequest)) < strlen(getRequest))
@@ -115,16 +105,12 @@ int main(int argc, char * argv[]) {
 	FD_ZERO(&set);		//zero out set
 	FD_SET(sock,&set);	//add sockfd to set
 
-	cout << "7";
-
 	if(select(sock+1, &set, NULL, NULL, NULL) == -1)
 	{
 		perror("select");
 		exit(1);
 	}
 
-	cout << "8\n";
-	
 	if(FD_ISSET(sock, &set))
 	{
 		n = read(sock, buf, BUFSIZE);
@@ -140,33 +126,27 @@ int main(int argc, char * argv[]) {
 		//fprintf(stdout, "# of bytes read = %d\n", n);			
 	}
 	
-	cout << buf << endl;
-	//fprintf(wheretoprint, "%s\n",buf);
-	
-	
-	
-    /* first read loop -- read headers */
+	    /* first read loop -- read headers */
 	int i;
 	for(i = 9; buf[i]!='\r'; i++);
 		//cout << buf[i];
-	cout << endl;
 	
 	char statusLine[i-9];
 	for(int j = 0; j < i-9; j++)
 		statusLine[j] = buf[j+9	];
 	
-	cout << statusLine << endl;
 	string hello(statusLine);
+	string strbuf(buf);
 	
 	if(hello != "200 OK")
 	{
 		ok =false;
-		fprintf(stderr,"%s\n", statusLine);
+		cout << strbuf.substr(0, strbuf.length()-4) << endl;
 		cout << "ERROR FOUND" << endl;
 	}
 	else
 	{
-		cout << buf << endl;
+		cout << strbuf.substr(strbuf.find("<"), strbuf.length() - strbuf.find("<") - 3) << endl;
 	}
 
 	
@@ -204,5 +184,3 @@ int write_n_bytes(int fd, char * buf, int count) {
 	return totalwritten;
     }
 }
-
-
