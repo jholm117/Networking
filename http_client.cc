@@ -140,30 +140,34 @@ int main(int argc, char * argv[]) {
 		//fprintf(stdout, "# of bytes read = %d\n", n);			
 	}
 	
-	cout << buf << "\n";
+	cout << buf << endl;
 	//fprintf(wheretoprint, "%s\n",buf);
 	
 	
 	
     /* first read loop -- read headers */
-    /*stringstream stream(buf);
-    string statusLine;
-    cout << getline(&buf, &statusLine);
-*/
-	string buf2(buf);
-	string statusLine = buf2.substr(buf2.find(' ')+1, buf2.find('\r'));
-	if(statusLine != "200 OK")
+	int i;
+	for(i = 9; buf[i]!='\r'; i++);
+		//cout << buf[i];
+	cout << endl;
+	
+	char statusLine[i-9];
+	for(int j = 0; j < i-9; j++)
+		statusLine[j] = buf[j+9	];
+	
+	cout << statusLine << endl;
+	string hello(statusLine);
+	
+	if(hello != "200 OK")
 	{
 		ok =false;
-		fprintf(stderr,"%s", statusLine);
+		fprintf(stderr,"%s\n", statusLine);
 		cout << "ERROR FOUND" << endl;
 	}
 	else
 	{
 		cout << buf << endl;
 	}
-
-	cout << statusLine << endl;
 
 	
     /* examine return code */   
