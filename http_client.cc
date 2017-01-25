@@ -10,8 +10,8 @@ using namespace std;
 
 int write_n_bytes(int fd, char * buf, int count);
 
-void error(char *msg) {
-    perror(msg);
+void error(string msg) {
+    perror(msg.c_str());
     exit(0);
 }
 
@@ -21,23 +21,25 @@ int main(int argc, char * argv[]) {
     char * server_path = NULL;
 			
     int sock = 0;
-    int rc = -1;
-    int datalen = 0;
+    //int rc = -1;
+    //int datalen = 0;
     bool ok = true;
     struct sockaddr_in sa;
-    FILE * wheretoprint = stdout;
+    //FILE * wheretoprint = stdout;
     struct hostent * site = NULL;
-    char * req = NULL;
+    //char * req = NULL;
+
 
     char buf[BUFSIZE + 1];
-    char * bptr = NULL;
-    char * bptr2 = NULL;
-    char * endheaders = NULL;
+    //char * bptr = NULL;
+    //char * bptr2 = NULL;
+    //char * endheaders = NULL;
    
-    struct timeval timeout;
+    //struct timeval timeout;
     fd_set set;
 	
-	/*parse args */
+
+    /*parse args */
     if (argc != 5) {
 	fprintf(stderr, "usage: http_client k|u server port path\n");
 	exit(-1);
@@ -47,7 +49,8 @@ int main(int argc, char * argv[]) {
     server_port = atoi(argv[3]);
     server_path = argv[4];
 
-	/* initialize minet */
+
+    /* initialize minet */
     if (toupper(*(argv[1])) == 'K') { 
 	minet_init(MINET_KERNEL);
     } else if (toupper(*(argv[1])) == 'U') { 
@@ -56,6 +59,7 @@ int main(int argc, char * argv[]) {
 	fprintf(stderr, "First argument must be k or u\n");
 	exit(-1);
     }
+
 
     /* create socket */
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -66,7 +70,7 @@ int main(int argc, char * argv[]) {
     /* Hint: use gethostbyname() */
 	site = gethostbyname(server_name);
 	if(site == NULL){
-		fprintf(stderr,"ERROR, no such host as %s\n", site);
+		fprintf(stderr,"ERROR, no such host as %s\n", (char *)site);
 		exit(0);
 	}
 		
@@ -76,7 +80,8 @@ int main(int argc, char * argv[]) {
 	sa.sin_addr.s_addr = *(unsigned long *)site->h_addr_list[0];
 	sa.sin_family = AF_INET;
 	
-	/* connect socket */
+
+    /* connect socket */
     if(connect(sock, (struct sockaddr*)&sa, sizeof(sa)) < 0){
 		error("ERROR connecting");
 	}	
@@ -84,13 +89,11 @@ int main(int argc, char * argv[]) {
     /* send request */
     int length = strlen(server_path) +17;	
 	char getRequest[length];
-	strcpy(getRequest, "GET /");
+	strcpy(getRequest, "GET ");
 	strcat(getRequest, server_path);
 	strcat(getRequest, " HTTP/1.0\r\n\r\n");
 	//strcat("GET " + server_path + " HTTP/1.0\r\n\r\n";
 	
-	//cout << getRequest << endl;
-	cout << endl;
 	write_n_bytes(sock, getRequest, strlen(getRequest));
 
 	//if( write(sock, getRequest, strlen(getRequest)) < strlen(getRequest))
@@ -111,6 +114,7 @@ int main(int argc, char * argv[]) {
 		exit(1);
 	}
 
+	
 	if(FD_ISSET(sock, &set))
 	{
 		n = read(sock, buf, BUFSIZE);
@@ -123,42 +127,41 @@ int main(int argc, char * argv[]) {
 		{
 			error("server connection closed.");
 		}
-		//fprintf(stdout, "# of bytes read = %d\n", n);			
 	}
+		
 	
-	    /* first read loop -- read headers */
+    /* first read loop -- read headers */
 	int i;
 	for(i = 9; buf[i]!='\r'; i++);
-		//cout << buf[i];
 	
 	char statusLine[i-9];
 	for(int j = 0; j < i-9; j++)
-		statusLine[j] = buf[j+9	];
+		statusLine[j] = buf[j+9];
 	
 	string hello(statusLine);
 	string strbuf(buf);
 	
-	if(hello != "200 OK")
-	{
-		ok =false;
-		cout << strbuf.substr(0, strbuf.length()-4) << endl;
-		cout << "ERROR FOUND" << endl;
-	}
-	else
-	{
-		cout << strbuf.substr(strbuf.find("<"), strbuf.length() - strbuf.find("<") - 3) << endl;
-	}
+	
 
 	
     /* examine return code */   
     //Skip "HTTP/1.0"
     //remove the '\0'
     // Normal reply has return code 200
-
+	if(hello != "200 OK")
+	{
+		ok =false;
+		cout << strbuf.substr(0, strbuf.length()-4) << endl;
+	}
     /* print first part of response */
 
     /* second read loop -- print out the rest of the response */
-    
+    else
+	{
+		cout << strbuf.substr(strbuf.find("<"), strbuf.length() - strbuf.find("<") - 3) << endl;
+	}	
+	
+	
     /*close socket and deinitialize */
 	close(sock);
 
@@ -184,3 +187,5 @@ int write_n_bytes(int fd, char * buf, int count) {
 	return totalwritten;
     }
 }
+
+
