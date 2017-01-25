@@ -151,14 +151,14 @@ int main(int argc, char * argv[]) {
 	if(hello != "200 OK")
 	{
 		ok =false;
-		cout << strbuf.substr(0, strbuf.length()-4) << endl;
+		cout << strbuf.substr(0, strbuf.find_last_of(">")+1) << endl;
 	}
     /* print first part of response */
 
     /* second read loop -- print out the rest of the response */
     else
 	{
-		cout << strbuf.substr(strbuf.find("<"), strbuf.length() - strbuf.find("<") - 3) << endl;
+		cout << strbuf.substr(strbuf.find("<"), strbuf.find_last_of(">") - strbuf.find("<")) << endl;
 	}	
 	
 	
@@ -187,5 +187,3 @@ int write_n_bytes(int fd, char * buf, int count) {
 	return totalwritten;
     }
 }
-
-
