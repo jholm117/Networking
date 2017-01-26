@@ -23,8 +23,10 @@ int main(int argc,char *argv[])
   int rc;
   int addrlen;
   fd_set read_fds;
-
+  fd_set master;
+  int fdmax;
   FD_ZERO(&read_fds);	//clear set
+  FD_ZERO(&master);
   
   /* parse command line args */
   if (argc != 3)
@@ -59,34 +61,107 @@ int main(int argc,char *argv[])
     }
 
   /* start listening */
-  if (listen(sock, 10) == -1) {
+  if (listen(sock, 5) == -1) {
         perror("listen");
         exit(1);
     }
 	
-	FD_SET(sock, &read_fds);	//add listening socket to set
+	FD_SET(sock, &master);	//add listening socket to set
+	fdmax = sock;
 	
   /* connection handling loop */
   while(1)
   {
+	  /* addrlen = sizeof(sa2);
+		if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
+		{
+			perror("accept");
+			continue;
+		}
+		cout << "connection made" << endl;
+	  
+	  if (!fork())
+		{ // this is the child process
+            close(sock); // child doesn't need the listener
+			
+            rc = handle_connection(sock2);
+			
+            close(sock2);
+            exit(0);
+        }
+        close(sock2);  // parent doesn't need this
+	 */ 
+	  cout << "enter while loop" << endl;
+	 
 	  //wait until connection request has arrived
-	if(select(sock+1, &read_fds, NULL, NULL, NULL) == -1) {
+	  read_fds = master;
+	if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
 		perror("select");
 		exit(1);
+	}	
+	cout << "past select" << endl; 
+	for (int i = 0; i <= fdmax; i++)
+ 	{
+		if(FD_ISSET(i, &read_fds))
+		{
+			// sock ready to accept
+			if(i == sock)
+			{
+				addrlen = sizeof(sa2);
+				if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
+					perror("accept");
+				else
+				{
+					FD_SET(sock2, &master); // add to master set
+                        if (sock2 > fdmax)
+						{    // keep track of the maximum
+                            fdmax = sock2;
+                        }
+						cout << "connection made" << endl;
+				}
+			}
+			else
+			{
+				rc = handle_connection(i);
+				fdmax = sock;
+			}
+		}
+		
+		
 	}
-	
-	// connection request arrived
+	/*
+		// connection request arrived
 	if(FD_ISSET(sock, &read_fds))
 	{
 		addrlen = sizeof(sa2);
 		if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
 			perror("accept");
 		else
+		{
+			FD_ZERO(&read_fds);
+			FD_SET(sock2, &read_fds);
+			if(sock2 > fdmax)
+				fdmax = sock2;
 			cout << "connection made" << endl;
+			
+		}
 	}
-    /* handle connections */
-    rc = handle_connection(sock2);
+	if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
+		perror("select");
+		exit(1);
+	}	
+		
+    // handle connections 
+	if(FD_ISSET(sock2, &read_fds))
+	{
+		rc = handle_connection(sock2);
+		
+	}
+	
+	*/
+	
   }
+		
 }
 
 int handle_connection(int sock2)
@@ -112,39 +187,55 @@ int handle_connection(int sock2)
   bool ok=true;
 	FILE * file;
 	
+	cout << "hello" << endl;
+	
   /* first read loop -- get request and headers*/
-	if(readnbytes(sock2, buf, BUFSIZE) < 0){
+	if(read(sock2, buf, BUFSIZE) < 0){
+		cout << "1" << endl;
 		perror("read");
 		ok = false;
 	}
-	else{
-	
+	else
+	{
+		cout << "2" <<endl;
+		cout << buf << endl;
 		/* parse request to get file name */
 		/* Assumption: this is a GET request and filename contains no spaces*/
 		for(int i =4; buf[i] != ' '; i++)
-			filename[i-4] = buf[i];	
+		{
+			filename[i-4] = buf[i];
+		}
+		cout << filename << endl;
 	
 	
 		/* try opening the file */
 		if((file = fopen(filename, "r")) == NULL){
 		perror("opening file");
 		ok = false;
-		}	
+		}
+		cout << "file = " << file <<  endl;
 	}
 
   /* send response */
   if (ok)
   {
+	  cout << "3" << endl;
+	  
     /* send headers */
-	writenbytes(sock2, ok_response_f, strlen(ok_response_f));
-	
+	int n = write(sock2, ok_response_f, strlen(ok_response_f));
+	cout << "bytes written 1st time = " << n << endl;
     /* send file */	
-	fread(ok_response, sizeof(char), 100, file);
-	writenbytes(sock2, ok_response, 100); 
+	fread(ok_response, sizeof(char), 100, file);		//extract file into ok_response
+	cout << "ok response = " << ok_response << endl;	
+	
+	
+	n = write(sock2, ok_response, 100); 					//write file contents
+		cout << "bytes written 1st time = " << n << endl;
   }
   else // send error response
   {
-	  writenbytes(sock2,notok_response,strlen(notok_response));
+	  cout << "4" << endl;
+	  write(sock2,notok_response,strlen(notok_response));
   }
 
   /* close socket and free space */
@@ -156,6 +247,7 @@ int handle_connection(int sock2)
     return -1;
 }
 
+//changed minet_read to read
 int readnbytes(int fd,char *buf,int size)
 {
   int rc = 0;
