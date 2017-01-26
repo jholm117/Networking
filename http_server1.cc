@@ -72,26 +72,7 @@ int main(int argc,char *argv[])
   /* connection handling loop */
   while(1)
   {
-	  /* addrlen = sizeof(sa2);
-		if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
-		{
-			perror("accept");
-			continue;
-		}
-		cout << "connection made" << endl;
 	  
-	  if (!fork())
-		{ // this is the child process
-            close(sock); // child doesn't need the listener
-			
-            rc = handle_connection(sock2);
-			
-            close(sock2);
-            exit(0);
-        }
-        close(sock2);  // parent doesn't need this
-	 */ 
-	  cout << "enter while loop" << endl;
 	 
 	  //wait until connection request has arrived
 	  read_fds = master;
@@ -99,7 +80,6 @@ int main(int argc,char *argv[])
 		perror("select");
 		exit(1);
 	}	
-	cout << "past select" << endl; 
 	for (int i = 0; i <= fdmax; i++)
  	{
 		if(FD_ISSET(i, &read_fds))
@@ -128,37 +108,7 @@ int main(int argc,char *argv[])
 		}
 		
 		
-	}
-	/*
-		// connection request arrived
-	if(FD_ISSET(sock, &read_fds))
-	{
-		addrlen = sizeof(sa2);
-		if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
-			perror("accept");
-		else
-		{
-			FD_ZERO(&read_fds);
-			FD_SET(sock2, &read_fds);
-			if(sock2 > fdmax)
-				fdmax = sock2;
-			cout << "connection made" << endl;
-			
-		}
-	}
-	if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
-		perror("select");
-		exit(1);
 	}	
-		
-    // handle connections 
-	if(FD_ISSET(sock2, &read_fds))
-	{
-		rc = handle_connection(sock2);
-		
-	}
-	
-	*/
 	
   }
 		
@@ -167,14 +117,16 @@ int main(int argc,char *argv[])
 int handle_connection(int sock2)
 {
   char filename[FILENAMESIZE+1];
-  int rc;
-  int fd;
+  //int rc;
+  //int fd;
   struct stat filestat;
   char buf[BUFSIZE+1];
-  char *headers;
-  char *endheaders;
-  char *bptr;
-  int datalen=0;
+  //char *headers;
+  //char *endheaders;
+  //char *bptr;
+  //int datalen=0;
+  char *filebuf;
+  int fileSize;
   char *ok_response_f = "HTTP/1.0 200 OK\r\n"\
                       "Content-type: text/plain\r\n"\
                       "Content-length: %d \r\n\r\n";
@@ -186,26 +138,22 @@ int handle_connection(int sock2)
                          "</body></html>\n";
   bool ok=true;
 	FILE * file;
-	
-	cout << "hello" << endl;
+	bzero(buf, BUFSIZE+1);
+	bzero(filename, FILENAMESIZE+1);
 	
   /* first read loop -- get request and headers*/
 	if(read(sock2, buf, BUFSIZE) < 0){
-		cout << "1" << endl;
 		perror("read");
 		ok = false;
 	}
 	else
 	{
-		cout << "2" <<endl;
-		cout << buf << endl;
 		/* parse request to get file name */
 		/* Assumption: this is a GET request and filename contains no spaces*/
 		for(int i =4; buf[i] != ' '; i++)
 		{
 			filename[i-4] = buf[i];
 		}
-		cout << filename << endl;
 	
 	
 		/* try opening the file */
@@ -213,28 +161,37 @@ int handle_connection(int sock2)
 		perror("opening file");
 		ok = false;
 		}
-		cout << "file = " << file <<  endl;
 	}
 
   /* send response */
   if (ok)
   {
-	  cout << "3" << endl;
 	  
+	  
+	stat(filename, &filestat);
+	fileSize = filestat.st_size;
+	
+	snprintf(ok_response, 100, ok_response_f,fileSize);
     /* send headers */
-	int n = write(sock2, ok_response_f, strlen(ok_response_f));
-	cout << "bytes written 1st time = " << n << endl;
-    /* send file */	
-	fread(ok_response, sizeof(char), 100, file);		//extract file into ok_response
-	cout << "ok response = " << ok_response << endl;	
+	
+	int n = write(sock2, ok_response, strlen(ok_response));	
+	
+    /* send file */
 	
 	
-	n = write(sock2, ok_response, 100); 					//write file contents
-		cout << "bytes written 1st time = " << n << endl;
+
+	filebuf = new char[fileSize];	//filebuf is size of file
+	
+	fread(filebuf, sizeof(char), fileSize, file);		//extract file into ok_response
+	
+	
+	n = write(sock2, filebuf, fileSize); 					//write file contents
+	
+	delete filebuf;
+		
   }
   else // send error response
   {
-	  cout << "4" << endl;
 	  write(sock2,notok_response,strlen(notok_response));
   }
 
@@ -247,7 +204,6 @@ int handle_connection(int sock2)
     return -1;
 }
 
-//changed minet_read to read
 int readnbytes(int fd,char *buf,int size)
 {
   int rc = 0;
