@@ -9,6 +9,7 @@
 using namespace std;
 
 int write_n_bytes(int fd, char * buf, int count);
+int readnbytes(int fd,char *buf,int size);
 
 void error(string msg) {
     perror(msg.c_str());
@@ -114,54 +115,76 @@ int main(int argc, char * argv[]) {
 		exit(1);
 	}
 
-	
-	if(FD_ISSET(sock, &set))
-	{
-		n = read(sock, buf, BUFSIZE);
-		if(n<0)
-		{
-			error("ERROR writing to socket");
-			
-		}
-		if(n==0)
-		{
-			error("server connection closed.");
-		}
-	}
 		
-	
     /* first read loop -- read headers */
-	int i;
-	for(i = 9; buf[i]!='\r'; i++);
-	
-	char statusLine[i-9];
-	for(int j = 0; j < i-9; j++)
-		statusLine[j] = buf[j+9];
-	
-	string hello(statusLine);
-	string strbuf(buf);
-	
-	
-
-	
+    n = read(sock, buf, BUFSIZE);
+	if(n <= 0)
+	{
+		perror("Error reading from socket");
+		FD_CLR(sock, &set);
+		close(sock);
+	}
+	buf[n] = '\0';
+	string body = "", header = "";
+	int test = 0;
+	body = string(buf);
+	test = body.find("\r\n\r\n");
+	header = body.substr(0, test);
+	body = body.substr(test+4);
+	body = body.substr(0, n);
+/*
+	while(n > 0)
+	{
+		body += string(buf);
+		test = body.find("\r\n\r\n", 0);
+		if(test != string::npos)
+		{
+			header = body.substr(0, test);
+			body = body.substr(test+4);
+			break;
+		}
+		else
+			header += body;
+		n = read(sock, buf, BUFSIZE);
+	}
+*/
     /* examine return code */   
     //Skip "HTTP/1.0"
     //remove the '\0'
     // Normal reply has return code 200
-	if(hello != "200 OK")
-	{
-		ok =false;
-		cout << strbuf.substr(0, strbuf.find_last_of(">")+1) << endl;
-	}
-    /* print first part of response */
+    // Parse headers
+	int pos1 = header.find(" ");
+	int pos2 = header.find(" ", pos1+1);
+    int errorCode = stoi(header.substr(pos1, pos2-pos1));
+    pos1 = header.find("Content-Length: ");
+    pos1 += strlen("Content-Length: ");
+    pos2 = header.find("\r", pos1);
+    int contentLength = stoi(header.substr(pos1, pos2-pos1));
+    //cout << "content l " << contentLength << endl << endl;
+    //cout << "header: \n" << header << endl;
+    //cout << "errcode " << errorCode << endl << endl;
+	
+	int bodyLength = body.length();
+	//cout << "body: \n" << body << endl;
 
-    /* second read loop -- print out the rest of the response */
-    else
+	int diff = contentLength - bodyLength;
+	char* buf2;
+
+	if(errorCode != 200)
 	{
-		cout << strbuf.substr(strbuf.find("<"), strbuf.find_last_of(">") - strbuf.find("<")) << endl;
-	}	
-	
-	
+		ok = false;
+		cout << header << endl;
+	}
+
+	if(diff > 0)
+	{
+		buf2 = new char[diff+1];
+		readnbytes(sock, buf2, diff);
+		body += string(buf2);
+	}
+		
+	cout << body;	
+
     /*close socket and deinitialize */
 	close(sock);
 
@@ -186,4 +209,18 @@ int write_n_bytes(int fd, char * buf, int count) {
     } else {
 	return totalwritten;
     }
+}
+int readnbytes(int fd,char *buf,int size)
+{
+  int rc = 0;
+  int totalread = 0;
+  while ((rc = read(fd,buf+totalread,size-totalread)) > 0)
+    totalread += rc;
+
+  if (rc < 0)
+  {
+    return -1;
+  }
+  else
+    return totalread;
 }
