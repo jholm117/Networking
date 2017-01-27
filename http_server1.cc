@@ -1,6 +1,6 @@
 // Theodore Bisdikian :: tab210
 // Jeffery Holm :: jah586
-// Kyle Lueptow :: 
+// Kyle Lueptow :: kjl885
 
 #include "minet_socket.h"
 #include <stdlib.h>
