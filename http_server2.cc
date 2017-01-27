@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <iostream>
 
 #define BUFSIZE 1024
 #define FILENAMESIZE 100
@@ -19,7 +20,10 @@ int main(int argc,char *argv[])
   int rc,i;
   fd_set readlist;
   fd_set connections;
+  FD_ZERO(&readlist);
+  FD_ZERO(&connections);
   int maxfd;
+  int addrlen;
 
   /* parse command line args */
   if (argc != 3)
@@ -35,44 +39,86 @@ int main(int argc,char *argv[])
   }
 
   /* initialize and make socket */
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+    perror("socket");
+    exit(1);
+  }
 
   /* set server address*/
+  sa.sin_family = AF_INET;
+  sa.sin_addr.s_addr = INADDR_ANY;
+  sa.sin_port = htons(server_port);
+  memset(&(sa.sin_zero), '\0', 8);
 
   /* bind listening socket */
+  if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
+        perror("bind");
+        exit(1);
+    }
 
   /* start listening */
+  if (listen(sock, 5) == -1) {
+        perror("listen");
+        exit(1);
+  }
+
+  maxfd = sock; // track max file descriptor
+
+  FD_ZERO(&connections);
+  FD_ZERO(&readlist);
+  FD_SET(sock, &readlist);
 
   /* connection handling loop */
   while(1)
   {
     /* create read list */
+    readlist = connections;
 
     /* do a select */
+    if (select(maxfd+1, &readlist, NULL, NULL, NULL) == -1){
+      perror("select");
+      exit(1);
+    }
 
     /* process sockets that are ready */
-
-      /* for the accept socket, add accepted connection to connections */
-      if (i == sock)
-      {
+    for(i = 0; i < maxfd; i++)
+    {
+      if(FD_ISSET(i, &readlist)){
+        /* for the accept socket, add accepted connection to connections */
+        if (i == sock)
+        {
+          addrlen = sizeof(sa2);
+          if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
+            perror("accept");
+          else
+          {
+            FD_SET(sock2, &connections);
+            if(sock2 > maxfd)
+              maxfd = sock2;
+            //cout << "connection made" << endl;
+          }
+        }
+        else /* for a connection socket, handle the connection */
+        {
+  	     rc = handle_connection(i);
+         FD_CLR(i, &connections);
+        }
       }
-      else /* for a connection socket, handle the connection */
-      {
-	rc = handle_connection(i);
-      }
+    }
   }
 }
 
 int handle_connection(int sock2)
 {
   char filename[FILENAMESIZE+1];
-  int rc;
-  int fd;
+  //int rc;
+  //int fd;
   struct stat filestat;
   char buf[BUFSIZE+1];
-  char *headers;
-  char *endheaders;
-  char *bptr;
-  int datalen=0;
+  //char *headers;
+  //char *endheaders;
+  //char *bptr;
+  //int datalen=0;
   char *ok_response_f = "HTTP/1.0 200 OK\r\n"\
                       "Content-type: text/plain\r\n"\
                       "Content-length: %d \r\n\r\n";
@@ -83,27 +129,69 @@ int handle_connection(int sock2)
                          "<h2>404 FILE NOT FOUND</h2>\n"\
                          "</body></html>\n";
   bool ok=true;
+  char *filebuf;
+  int fileSize;
+  FILE * file;
+  bzero(buf, BUFSIZE+1);
+  bzero(filename, FILENAMESIZE+1);
 
   /* first read loop -- get request and headers*/
-
-  /* parse request to get file name */
-  /* Assumption: this is a GET request and filename contains no spaces*/
-
+  if(read(sock2, buf, BUFSIZE) < 0){
+    perror("read");
+    ok = false;
+  }
+  else
+  {
+    /* parse request to get file name */
+    /* Assumption: this is a GET request and filename contains no spaces*/
+    for(int i =4; buf[i] != ' '; i++)
+    {
+      filename[i-4] = buf[i];
+    }
+  
+  
     /* try opening the file */
+    if((file = fopen(filename, "r")) == NULL){
+    perror("opening file");
+    ok = false;
+    }
+  }
 
   /* send response */
   if (ok)
   {
-    /* send headers */
+    
+    
+    stat(filename, &filestat);
+    fileSize = filestat.st_size;
+    
+    snprintf(ok_response, 100, ok_response_f,fileSize);
+      /* send headers */
+    
+    int n = write(sock2, ok_response, strlen(ok_response)); 
+    
+      /* send file */
+    
+    
 
-    /* send file */
+    filebuf = new char[fileSize]; //filebuf is size of file
+    
+    fread(filebuf, sizeof(char), fileSize, file);   //extract file into ok_response
+    
+    
+    n = write(sock2, filebuf, fileSize);          //write file contents
+    
+    delete filebuf;
+      
   }
-  else	// send error response
+  else // send error response
   {
+    write(sock2,notok_response,strlen(notok_response));
   }
 
   /* close socket and free space */
-
+  close(sock2);
+  
   if (ok)
     return 0;
   else
