@@ -56,15 +56,15 @@ int main(int argc,char *argv[])
 
   /* bind listening socket */
   if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
-        perror("bind");
-        exit(1);
-    }
+    perror("bind");
+    exit(1);
+  }
 
   /* start listening */
   if (listen(sock, 5) == -1) {
         perror("listen");
         exit(1);
-    }
+  }
   
   
   /* connection handling loop */
@@ -84,14 +84,8 @@ int main(int argc,char *argv[])
 int handle_connection(int sock2)
 {
   char filename[FILENAMESIZE+1];
-  //int rc;
-  //int fd;
   struct stat filestat;
   char buf[BUFSIZE+1];
-  //char *headers;
-  //char *endheaders;
-  //char *bptr;
-  //int datalen=0;
   char *filebuf;
   int fileSize;
   char *ok_response_f = "HTTP/1.0 200 OK\r\n"\
@@ -112,15 +106,10 @@ int handle_connection(int sock2)
   
   /* first read loop -- get request and headers*/
   if((n = read(sock2, buf, BUFSIZE)) <= 0){
-    
-      // connection closed
-            //printf("selectserver: socket %d hung up\n", i);
-    
     if (n < 0)
     {
-      writenbytes(sock2,notok_response,strlen(notok_response));
+      //writenbytes(sock2,notok_response,strlen(notok_response));
       perror("read");
-      
     }
     ok = false;
   }
@@ -131,49 +120,38 @@ int handle_connection(int sock2)
     cout << "buf = " << buf << endl;
     int i = 4;
     if (buf[i] == '/')
-    {
       i++;
-    }
+
     for(int j=i; buf[j] != ' '; j++)
-    {
-      
       filename[j-i] = buf[j];
-    }
-  
   
     /* try opening the file */
     if((file = fopen(filename, "r")) == NULL){
-    perror("opening file");
-    ok = false;
+      perror("opening file");
+      ok = false;
     }
   }
 
   /* send response */
   if (ok)
   {
+    stat(filename, &filestat);
+    fileSize = filestat.st_size;
     
+    snprintf(ok_response, 100, ok_response_f,fileSize);
+      
+    /* send headers */  
+    writenbytes(sock2, ok_response, strlen(ok_response)); 
     
-  stat(filename, &filestat);
-  fileSize = filestat.st_size;
-  
-  snprintf(ok_response, 100, ok_response_f,fileSize);
-    
-  /* send headers */  
-  writenbytes(sock2, ok_response, strlen(ok_response)); 
-  
-    /* send file */
-  filebuf = new char[fileSize]; //filebuf is size of file
-  
-  fread(filebuf, sizeof(char), fileSize, file);   //extract file into ok_response
-  
-  
-  writenbytes(sock2, filebuf, fileSize);          //write file contents
-  
-  delete filebuf;
-    
+      /* send file */
+    filebuf = new char[fileSize]; //filebuf is size of file
+    fread(filebuf, sizeof(char), fileSize, file);   //extract file into ok_response
+    writenbytes(sock2, filebuf, fileSize);          //write file contents
+    delete filebuf;  
   }
+  else
+    writenbytes(sock2, notok_response, strlen(notok_response));
   
-
   /* close socket and free space */
   close(sock2);
   
