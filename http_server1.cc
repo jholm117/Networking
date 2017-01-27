@@ -25,7 +25,7 @@ int main(int argc,char *argv[])
   fd_set read_fds;
   fd_set master;
   int fdmax;
-  FD_ZERO(&read_fds);	//clear set
+  FD_ZERO(&read_fds); //clear set
   FD_ZERO(&master);
   
   /* parse command line args */
@@ -43,8 +43,8 @@ int main(int argc,char *argv[])
 
   /* initialize and make socket */
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-	  perror("socket");
-	  exit(1);
+    perror("socket");
+    exit(1);
   }
   
 
@@ -65,52 +65,20 @@ int main(int argc,char *argv[])
         perror("listen");
         exit(1);
     }
-	
-	FD_SET(sock, &master);	//add listening socket to set
-	fdmax = sock;
-	
+  
+  
   /* connection handling loop */
   while(1)
   {  
-	 
-	  //wait until connection request has arrived
-	  read_fds = master;
-	if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
-		perror("select");
-		exit(1);
-	}	
-	for (int i = 0; i <= fdmax; i++)
- 	{
-		if(FD_ISSET(i, &read_fds))
-		{
-			// sock ready to accept
-			if(i == sock)
-			{
-				addrlen = sizeof(sa2);
-				if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) == -1)
-					perror("accept");
-				else
-				{
-					FD_SET(sock2, &master); // add to master set
-                        if (sock2 > fdmax)
-						{    // keep track of the maximum
-                            fdmax = sock2;
-                        }
-						cout << "connection made to " << inet_ntoa(sa2.sin_addr) << " on socket " << sock2 << endl;
-				}
-			}
-			else
-			{
-				rc = handle_connection(i);
-				FD_CLR(i, &master);
-			}
-		}
-		
-		
-	}	
-	
+    if((sock2 = accept(sock, (struct sockaddr *) &sa2, (socklen_t *) &addrlen)) >= 0)
+    {
+      rc = handle_connection(sock2);
+      if(rc < 0)
+        perror("rc broke");
+      close(sock2);
+    }
   }
-		
+    
 }
 
 int handle_connection(int sock2)
@@ -138,76 +106,76 @@ int handle_connection(int sock2)
   bool ok=true;
   int n;
   
-	FILE * file;
-	bzero(buf, BUFSIZE+1);
-	bzero(filename, FILENAMESIZE+1);
-	
+  FILE * file;
+  bzero(buf, BUFSIZE+1);
+  bzero(filename, FILENAMESIZE+1);
+  
   /* first read loop -- get request and headers*/
-	if((n = read(sock2, buf, BUFSIZE)) <= 0){
-		
-			// connection closed
+  if((n = read(sock2, buf, BUFSIZE)) <= 0){
+    
+      // connection closed
             //printf("selectserver: socket %d hung up\n", i);
-		
-		if (n < 0)
-		{
-			writenbytes(sock2,notok_response,strlen(notok_response));
-			perror("read");
-			
-		}
-		ok = false;
-	}
-	else
-	{
-		/* parse request to get file name */
-		/* Assumption: this is a GET request and filename contains no spaces*/
-		cout << "buf = " << buf << endl;
-		int i = 4;
-		if (buf[i] == '/')
-		{
-			i++;
-		}
-		for(int j=i; buf[j] != ' '; j++)
-		{
-			
-			filename[j-i] = buf[j];
-		}
-	
-	
-		/* try opening the file */
-		if((file = fopen(filename, "r")) == NULL){
-		perror("opening file");
-		ok = false;
-		}
-	}
+    
+    if (n < 0)
+    {
+      writenbytes(sock2,notok_response,strlen(notok_response));
+      perror("read");
+      
+    }
+    ok = false;
+  }
+  else
+  {
+    /* parse request to get file name */
+    /* Assumption: this is a GET request and filename contains no spaces*/
+    cout << "buf = " << buf << endl;
+    int i = 4;
+    if (buf[i] == '/')
+    {
+      i++;
+    }
+    for(int j=i; buf[j] != ' '; j++)
+    {
+      
+      filename[j-i] = buf[j];
+    }
+  
+  
+    /* try opening the file */
+    if((file = fopen(filename, "r")) == NULL){
+    perror("opening file");
+    ok = false;
+    }
+  }
 
   /* send response */
   if (ok)
   {
-	  
-	  
-	stat(filename, &filestat);
-	fileSize = filestat.st_size;
-	
-	snprintf(ok_response, 100, ok_response_f,fileSize);
     
-	/* send headers */	
-	writenbytes(sock2, ok_response, strlen(ok_response));	
-	
+    
+  stat(filename, &filestat);
+  fileSize = filestat.st_size;
+  
+  snprintf(ok_response, 100, ok_response_f,fileSize);
+    
+  /* send headers */  
+  writenbytes(sock2, ok_response, strlen(ok_response)); 
+  
     /* send file */
-	filebuf = new char[fileSize];	//filebuf is size of file
-	
-	fread(filebuf, sizeof(char), fileSize, file);		//extract file into ok_response
-	
-	
-	writenbytes(sock2, filebuf, fileSize); 					//write file contents
-	
-	delete filebuf;
-		
+  filebuf = new char[fileSize]; //filebuf is size of file
+  
+  fread(filebuf, sizeof(char), fileSize, file);   //extract file into ok_response
+  
+  
+  writenbytes(sock2, filebuf, fileSize);          //write file contents
+  
+  delete filebuf;
+    
   }
   
 
   /* close socket and free space */
-	close(sock2);
+  close(sock2);
   
   if (ok)
     return 0;
@@ -244,4 +212,3 @@ int writenbytes(int fd,char *str,int size)
   else
     return totalwritten;
 }
-
