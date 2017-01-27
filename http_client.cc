@@ -160,13 +160,9 @@ int main(int argc, char * argv[]) {
     pos1 += strlen("Content-Length: ");
     pos2 = header.find("\r", pos1);
     int contentLength = stoi(header.substr(pos1, pos2-pos1));
-    //cout << "content l " << contentLength << endl << endl;
-    //cout << "header: \n" << header << endl;
-    //cout << "errcode " << errorCode << endl << endl;
-	
-	int bodyLength = body.length();
-	//cout << "body: \n" << body << endl;
 
+	int bodyLength = body.length();
+	
 	int diff = contentLength - bodyLength;
 	char* buf2;
 
